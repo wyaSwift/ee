@@ -1,0 +1,96 @@
+-- ======= Services =======
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("RequestTakeDiamonds")
+
+-- ======= Helper: Hop Server =======
+local function hopServer()
+    local gameId = game.PlaceId
+    local success, body = pcall(function()
+        return game:HttpGet(("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(gameId))
+    end)
+
+    if success then
+        local data = HttpService:JSONDecode(body)
+        for _, server in ipairs(data.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                -- Queue this script to run in the next server
+                if queue_on_teleport then
+                    queue_on_teleport([[
+                        loadstring(game:HttpGet("https://dpaste.org/qHQV1/raw"))()
+                    ]])
+                end
+                pcall(function()
+                    TeleportService:TeleportToPlaceInstance(gameId, server.id, LocalPlayer)
+                end)
+                return
+            end
+        end
+    end
+
+    -- If no server found, retry after short wait
+    task.wait(3)
+    hopServer()
+end
+
+-- ======= Main Function =======
+local function farmDiamonds()
+    -- Wait until character exists
+    repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    -- Find Stronghold Chest
+    local chest = workspace.Items:FindFirstChild("Stronghold Diamond Chest")
+    if not chest then
+        -- No chest, hop server
+        hopServer()
+        return
+    end
+
+    -- Move to chest
+    LocalPlayer.Character:PivotTo(CFrame.new(chest:GetPivot().Position))
+
+    -- Find ProximityPrompt
+    local proxPrompt
+    repeat
+        task.wait(0.1)
+        local prox = chest:FindFirstChild("Main")
+        if prox and prox:FindFirstChild("ProximityAttachment") then
+            proxPrompt = prox.ProximityAttachment:FindFirstChild("ProximityInteraction")
+        end
+    until proxPrompt
+
+    -- Interact with chest
+    local startTime = tick()
+    while proxPrompt and proxPrompt.Parent and (tick() - startTime) < 10 do
+        pcall(function()
+            fireproximityprompt(proxPrompt)
+        end)
+        task.wait(0.2)
+    end
+
+    -- Collect all diamonds
+    local diamonds = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.ClassName == "Model" and v.Name == "Diamond" then
+            table.insert(diamonds, v)
+        end
+    end
+
+    local totalDiamonds = #diamonds
+    for _, v in pairs(diamonds) do
+        pcall(function()
+            Remote:FireServer(v)
+        end)
+    end
+
+    -- Kick with collected amount and hop server
+    LocalPlayer:Kick("Collected " .. totalDiamonds .. " diamonds! Teleporting...")
+    hopServer()
+end
+
+-- ======= Run =======
+farmDiamonds()
