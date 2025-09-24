@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("RequestTakeDiamonds")
 
--- ======= Helper: Hop Server =======
+-- ======= Hop Server =======
 local function hopServer()
     local gameId = game.PlaceId
     local success, body = pcall(function()
@@ -18,10 +18,9 @@ local function hopServer()
         local data = HttpService:JSONDecode(body)
         for _, server in ipairs(data.data) do
             if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                -- Queue this script to run in the next server
                 if queue_on_teleport then
                     queue_on_teleport([[
-                        loadstring(game:HttpGet("https://dpaste.org/qHQV1/raw"))()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/wyaSwift/ee/refs/heads/main/dd"))()
                     ]])
                 end
                 pcall(function()
@@ -31,29 +30,22 @@ local function hopServer()
             end
         end
     end
-
-    -- If no server found, retry after short wait
     task.wait(3)
     hopServer()
 end
 
--- ======= Main Function =======
+-- ======= Farm Diamonds =======
 local function farmDiamonds()
-    -- Wait until character exists
     repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    -- Find Stronghold Chest
+
     local chest = workspace.Items:FindFirstChild("Stronghold Diamond Chest")
     if not chest then
-        -- No chest, hop server
         hopServer()
         return
     end
 
-    -- Move to chest
     LocalPlayer.Character:PivotTo(CFrame.new(chest:GetPivot().Position))
 
-    -- Find ProximityPrompt
     local proxPrompt
     repeat
         task.wait(0.1)
@@ -63,7 +55,6 @@ local function farmDiamonds()
         end
     until proxPrompt
 
-    -- Interact with chest
     local startTime = tick()
     while proxPrompt and proxPrompt.Parent and (tick() - startTime) < 10 do
         pcall(function()
@@ -72,7 +63,6 @@ local function farmDiamonds()
         task.wait(0.2)
     end
 
-    -- Collect all diamonds
     local diamonds = {}
     for _, v in pairs(workspace:GetDescendants()) do
         if v.ClassName == "Model" and v.Name == "Diamond" then
@@ -87,10 +77,12 @@ local function farmDiamonds()
         end)
     end
 
-    -- Kick with collected amount and hop server
+    -- Kick showing total diamonds collected and hop
     LocalPlayer:Kick("Collected " .. totalDiamonds .. " diamonds! Teleporting...")
     hopServer()
 end
 
--- ======= Run =======
-farmDiamonds()
+-- ======= Loop Indefinitely =======
+while true do
+    farmDiamonds()
+end
